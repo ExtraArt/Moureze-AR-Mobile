@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.XR.ARFoundation;
 
 [RequireComponent(typeof(ARTrackedImageManager))]
@@ -12,12 +13,12 @@ public class MultiInteractiveObject : MonoBehaviour
     [SerializeField]
     private Camera arCamera;
     [SerializeField]
-    private PlacementObject[] placedObjects;
-    [SerializeField]
     private GameObject[] arObjectsToPlace;
     [SerializeField]
+    private Text imageTrackedText;
+    [SerializeField]
+    private Vector3 scaleFactor = new Vector3(0.2f, 0.2f, 0.2f);
 
-    private Vector3 scaleFactor = new Vector3(0.5f, 0.5f, 0.5f);
     private Vector2 touchPosition = default;
     private Vector3 savePanoramaStartPosition;
 
@@ -37,73 +38,56 @@ public class MultiInteractiveObject : MonoBehaviour
             arObjects.Add(arObject.name, newARObject);
         }
     }
-    void Update()
+
+    private void OnEnable()
     {
-        if (Input.touchCount > 0)
+        m_TrackedImageManager.trackedImagesChanged += OnTrackedImageChanged;
+    }
+    private void OnDisable()
+    {
+        m_TrackedImageManager.trackedImagesChanged -= OnTrackedImageChanged;
+    }
+
+    void OnTrackedImageChanged(ARTrackedImagesChangedEventArgs eventArges)
+    {
+        foreach (ARTrackedImage trackedImage in eventArges.added)
         {
-            Touch touch = Input.GetTouch(0);
-            touchPosition = touch.position;
+            UpdateARImage(trackedImage);
+        }
+        foreach (ARTrackedImage trackedImage in eventArges.updated)
+        {
+            UpdateARImage(trackedImage);
+        }
+        foreach (ARTrackedImage trackedImage in eventArges.removed)
+        {
+            arObjects[trackedImage.name].SetActive(false);
+        }
+    }
 
-            if (touch.phase == TouchPhase.Began)
+    private void UpdateARImage(ARTrackedImage trackedImage)
+    {
+        imageTrackedText.text = trackedImage.referenceImage.name;
+        AssignGameObject(trackedImage.referenceImage.name, trackedImage.transform.position);
+        Debug.Log($"trackedImage.referenceImage.name: {trackedImage.referenceImage.name}");
+    }
+
+    void AssignGameObject(string name, Vector3 newPosition)
+    {
+        if (arObjectsToPlace != null)
+        {
+            GameObject goARObject = arObjects[name];
+            goARObject.SetActive(true);
+            goARObject.transform.position = newPosition;
+            goARObject.transform.localScale = scaleFactor;
+            foreach (GameObject go in arObjects.Values)
             {
-                Ray ray = arCamera.ScreenPointToRay(touch.position);
-                RaycastHit hitObject;
-
-                if (Physics.Raycast(ray, out hitObject))
+                Debug.Log($"Go in arObjects.Values: {go.name}");
+                if (go.name != name)
                 {
-                    PlacementObject placementObject = hitObject.transform.GetComponent<PlacementObject>();
-                    if (placementObject != null)
-                    {
-                        theHitObject = hitObject.collider.gameObject;
-                        ChangeSelectedObject(placementObject);
-                        /*
-                        if (m_RaycastManager.Raycast(Input.GetTouch(0).position, m_Hits))
-                        {
-                            //ToggleZoomInPanoramaView(theHitObject);
-                        }
-                        */
-                    }
+                    go.SetActive(false);
                 }
             }
 
         }
-    }
-
-    void ChangeSelectedObject(PlacementObject selected)
-    {
-        foreach(PlacementObject current in placedObjects)
-        {
-            
-            if (selected != current)
-            {
-                current.IsSelected = false;
-            }
-            else
-            {
-                current.IsSelected = true;
-                //selected.transform.localScale += new Vector3(2, 2, 2);
-                ToggleZoomInPanoramaView(theHitObject);
-            }
-        }
-    }
-    void ToggleZoomInPanoramaView(GameObject selectedPanorama)
-    {
-        if (zoomInPanoramaActive == false)
-        {
-            selectedPanorama.transform.position = arCamera.transform.position;
-            selectedPanorama.transform.localScale += new Vector3(2, 2, 2);
-            zoomInPanoramaActive = !zoomInPanoramaActive;
-        }
-        else
-        {
-            selectedPanorama.transform.position = savePanoramaStartPosition;
-            selectedPanorama.transform.localScale -= new Vector3(2, 2, 2);
-            zoomInPanoramaActive = !zoomInPanoramaActive;
-        }
-    }
-
-    private void OnEnable()
-    {
-        m_TrackedImageManager.trackedImagesChanged += On;
     }
 }

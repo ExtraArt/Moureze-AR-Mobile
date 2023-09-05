@@ -3,16 +3,17 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 public class ScrollingPanorama : MonoBehaviour
-{ // flag to keep track whether we are dragging or not
+{ 
+    // flag to keep track whether we are dragging or not
     public bool isDragging = false;
 
     // starting point of a camera movement
-    float startMouseX;
-    float startMouseY;
+    float startTouchX;
+    float startTouchY;
 
-    // Camera component
     public Camera cam;
-    // Start is called before the first frame update
+    private Vector2 touchPosition = default;
+
     void Start()
     {
         // Get our camera component
@@ -22,37 +23,39 @@ public class ScrollingPanorama : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-
-        // if we press the left button and we haven't started dragging
-        if (Input.GetMouseButtonDown(0) && !isDragging)
+        // if we press the touch the screen and we haven't started dragging
+        if (Input.touchCount > 0 && !isDragging)
         {
-            // set the flag to true
-            isDragging = true;
+            Touch touch = Input.GetTouch(0);
+            touchPosition = touch.position;
 
-            // save the mouse starting position
-            startMouseX = Input.mousePosition.x;
-            startMouseY = Input.mousePosition.y;
-        }
-        // if we are not pressing the left btn, and we were dragging
-        else if (Input.GetMouseButtonUp(0) && isDragging)
-        {
-            // set the flag to false
-            isDragging = false;
+            if (touch.phase == TouchPhase.Began)
+            {
+                isDragging = true;
+
+                // save the mouse starting position
+                startTouchX = touchPosition.x;
+                startTouchY = touchPosition.y;
+            }
+            else
+            {
+                isDragging = false;
+            }
         }
     }
 
     void LateUpdate()
     {
         // Check if we are dragging
-        if (isDragging)
+        if (isDragging == true)
         {
-            //Calculate current mouse position
-            float endMouseX = Input.mousePosition.x;
-            float endMouseY = Input.mousePosition.y;
+            //Calculate current touch position
+            float endMouseX = touchPosition.x;
+            float endMouseY = touchPosition.y;
 
             //Difference (in screen coordinates)
-            float diffX = endMouseX - startMouseX;
-            float diffY = endMouseY - startMouseY;
+            float diffX = endMouseX - startTouchX;
+            float diffY = endMouseY - startTouchY;
 
             //New center of the screen
             float newCenterX = Screen.width / 2 + diffX;
@@ -65,8 +68,8 @@ public class ScrollingPanorama : MonoBehaviour
             transform.LookAt(LookHerePoint);
 
             //starting position for the next call
-            startMouseX = endMouseX;
-            startMouseY = endMouseY;
+            startTouchX = endMouseX;
+            startTouchY = endMouseY;
         }
     }
 }

@@ -11,17 +11,27 @@ public class InteractiveObject : MonoBehaviour
     private Camera arCamera;
     [SerializeField]
     private PlacementObject[] placedObjects;
+    [SerializeField]
+    private Vector3 defaultScalePanorama;
+    [SerializeField]
+    private Vector3 zoomScalePanorama = new Vector3(3, 3, 3);
+    [SerializeField]
+    private ParticleSystem blowVFX;
 
     private Vector2 touchPosition = default;
     private Vector3 savePanoramaStartPosition;
 
+    [SerializeField]
+    private GameObject objectToFind;
+    private GameObject instanceOfObjectToFind;
     private GameObject theHitObject;
-    private bool zoomInPanoramaActive;
+    private GameObject storeTheHitedObject;
+
+    private bool isInPanoramaView = false;
     List<ARRaycastHit> m_Hits = new List<ARRaycastHit>();
 
     private void Start()
     {
-
     }
     void Update()
     {
@@ -38,20 +48,29 @@ public class InteractiveObject : MonoBehaviour
                 if (Physics.Raycast(ray, out hitObject))
                 {
                     PlacementObject placementObject = hitObject.transform.GetComponent<PlacementObject>();
+                    savePanoramaStartPosition = hitObject.transform.position;
+
                     if (placementObject != null)
                     {
                         theHitObject = hitObject.collider.gameObject;
-                        ChangeSelectedObject(placementObject);
-                        /*
-                        if (m_RaycastManager.Raycast(Input.GetTouch(0).position, m_Hits))
+                        if (hitObject.collider.tag == "Panorama")
                         {
-                            //ToggleZoomInPanoramaView(theHitObject);
+                            storeTheHitedObject = hitObject.collider.gameObject;
+                            defaultScalePanorama = hitObject.transform.localScale;
+                            EnterInPanoramaView(theHitObject);
                         }
-                        */
+                        if (hitObject.collider.tag == "ObjectToFind")
+                        {
+                            SuccessfullyFindObject();
+                        }
+                        //ChangeSelectedObject(placementObject);
                     }
+                    if (isInPanoramaView == true)
+                    {
+                        FixPanoramaRotation(theHitObject);
+                    }     
                 }
             }
-
         }
     }
 
@@ -63,28 +82,83 @@ public class InteractiveObject : MonoBehaviour
             if (selected != current)
             {
                 current.IsSelected = false;
+                //ToggleZoomInPanoramaView(theHitObject);
             }
             else
             {
                 current.IsSelected = true;
                 //selected.transform.localScale += new Vector3(2, 2, 2);
-                ToggleZoomInPanoramaView(theHitObject);
+                //ToggleZoomInPanoramaView(theHitObject);
             }
         }
     }
-    void ToggleZoomInPanoramaView(GameObject selectedPanorama)
+    void EnterInPanoramaView(GameObject selectedPanorama)
     {
-        if (zoomInPanoramaActive == false)
+        if (isInPanoramaView == false)
         {
             selectedPanorama.transform.position = arCamera.transform.position;
-            selectedPanorama.transform.localScale += new Vector3(2, 2, 2);
-            zoomInPanoramaActive = !zoomInPanoramaActive;
+            selectedPanorama.transform.localScale = zoomScalePanorama;
+            FixPanoramaRotation(selectedPanorama);
+
+            isInPanoramaView = true;
         }
-        else
+        InstanciateObjectToFindInPanorama();
+        //HideAllInactivePanorama(selectedPanorama);
+
+    }
+
+    public void LeavePanormama()
+    {
+        storeTheHitedObject.transform.position = arCamera.transform.position + savePanoramaStartPosition;
+        storeTheHitedObject.transform.localScale = defaultScalePanorama;
+        isInPanoramaView = false;
+        instanceOfObjectToFind.GetComponent<DestroyObjectToFind>().DestroyObject();
+        //UnhideEveryPanoramas();
+    }
+    private void InstanciateObjectToFindInPanorama()
+    {
+        //Vector3 randomizePosition = new Vector3(Random.Range(0, 2), 0, Random.Range(0,2));
+        //Instantiate(objectToFind, new Vector3(arCamera.transform.position.x + randomizePosition.x, arCamera.transform.position.y, arCamera.transform.position.z + randomizePosition.z), Quaternion.identity);
+        instanceOfObjectToFind = Instantiate(objectToFind, new Vector3(arCamera.transform.position.x + 1, arCamera.transform.position.y, arCamera.transform.position.z + 3), Quaternion.identity);
+        instanceOfObjectToFind.tag = "ObjectToFind";
+    }
+    private void SuccessfullyFindObject()
+    {
+        if (objectToFind != null)
         {
-            selectedPanorama.transform.position = savePanoramaStartPosition;
-            selectedPanorama.transform.localScale -= new Vector3(2, 2, 2);
-            zoomInPanoramaActive = !zoomInPanoramaActive;
+            instanceOfObjectToFind.GetComponent<DestroyObjectToFind>().DestroyObject();
+            Instantiate(blowVFX, instanceOfObjectToFind.transform.position, Quaternion.identity);
         }
+    }
+
+    private void HideAllInactivePanorama(GameObject gameObjectHitedByRaycast)
+    {
+        GameObject[] collectionOfPanorama = GameObject.FindGameObjectsWithTag("Panorama");
+
+        if (isInPanoramaView == true)
+        {
+            foreach (var panorama in collectionOfPanorama)
+            {
+                panorama.SetActive(false);
+                if (gameObjectHitedByRaycast.name == panorama.name)
+                {
+                    gameObjectHitedByRaycast.SetActive(true);
+                }
+            }
+        }
+    }
+    private void UnhideEveryPanoramas()
+    {
+        GameObject[] collectionOfPanoramas = GameObject.FindGameObjectsWithTag("Panorama");
+        foreach (var panoramaToShow in collectionOfPanoramas)
+        {
+            panoramaToShow.SetActive(true);
+        }
+    }
+    private void FixPanoramaRotation(GameObject panoramaWithWrongRotation)
+    {
+        //panoramaWithWrongRotation.transform.LookAt(arCamera.transform.position);
+        Vector3 eulerRotation = new Vector3(transform.eulerAngles.x, arCamera.transform.eulerAngles.y, transform.eulerAngles.z);
+        panoramaWithWrongRotation.transform.rotation = Quaternion.Euler(eulerRotation);
     }
 }
